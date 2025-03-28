@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Prakiraan Cuaca</title>
+  <!-- Sertakan Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Rubik+Wet+Paint&display=swap");
+
+    svg {
+      font-family: "Rubik Wet Paint", sans-serif;
+      width: 100%; 
+      height: 100%;
+    }
+    svg text {
+      animation: stroke 5s infinite alternate;
+      stroke-width: 2;
+      stroke: #5697FF;
+      font-size: 50px;
+    }
+    .wrapper {
+      margin-top: -2%;
+      height: 70px;
+    }
+    @keyframes stroke {
+      0%   {
+        fill: rgba(0,229,255,0); stroke: rgba(86,151,255,1);
+        stroke-dashoffset: 25%; stroke-dasharray: 0 50%; stroke-width: 2;
+      }
+      70%  {fill: rgba(0,229,255,0); stroke: rgba(86,151,255,1); }
+      80%  {fill: rgba(0,229,255,0); stroke: rgba(86,151,255,1); stroke-width: 3; }
+      100% {
+        fill: rgba(0,229,255,1); stroke: rgba(86,151,255,0);
+        stroke-dashoffset: -25%; stroke-dasharray: 50% 0; stroke-width: 0;
+      }
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: linear-gradient(to top, #24243e, #302b63, #0f0c29);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background 1s ease;
+      font-family: 'Arial', sans-serif;
+    }
+    h1, h2, h3, h4, h5, p, span {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+    }
+    .hide {
+      display: none;
+    }
+    #starCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .space {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .weather-container {
+      position: relative;
+      z-index: 1; 
+      width: 100%;
+      max-width: 490px;
+      margin: 20px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-family: 'Arial', sans-serif;
+    }
+    .current-weather {
+      padding: 20px;
+      border-radius: 10px;
+      height: 70vh;
+      font-family: 'Arial', sans-serif;
+    }
+    .location {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      opacity: 0.9;
+      font-family: 'Arial', sans-serif;
+    }
+    .temperature {
+      font-size: 7rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-family: 'Arial', sans-serif;
+    }
+    .weather-condition {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      opacity: 0.9;
+      font-family: 'Arial', sans-serif;
+    }
+    .temp-range {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      font-family: 'Arial', sans-serif;
+    }
+    .air-quality {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      border-radius: 10px;
+      padding: 10px;
+      font-family: 'Arial', sans-serif;
+    }
+    .forecast-daily {
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+      font-family: 'Arial', sans-serif;
+    }
+    .forecast-daily h3 {
+      margin-bottom: 10px;
+      font-size: 1rem;
+      font-family: 'Arial', sans-serif;
+    }
+    .forecast-list {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      overflow-x: auto;
+      font-family: 'Arial', sans-serif;
+    }
+    .forecast-item {
+      flex: 0 0 auto;
+      width: 60px;
+      text-align: center;
+      font-family: 'Arial', sans-serif;
+    }
+    .forecast-item img {
+      width: 40px;
+      height: 40px;
+      margin-bottom: 5px;
+      font-family: 'Arial', sans-serif;
+    }
+    .forecast-item .day {
+      font-size: 0.8rem;
+      margin-bottom: 2px;
+    }
+    .forecast-item .temp {
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+    .weather-details {
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+    }
+    .weather-details h3 {
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+    .detail-cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .detail-card {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 15px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .detail-card .progress-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .detail-card .progress-fill {
+      height: 100%;
+      background: #4CAF50;
+      width: var(--progress);
+    }
+    .wind-direction {
+      display: inline-block;
+      transform: rotate(var(--degree));
+      margin-left: 8px;
+      font-size: 18px;
+    }
+    .detail-card .value-large {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+    .detail-card .unit {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+    #map {
+      height: 300px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    #forecastHourly {
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+    }
+    #forecastHourly h3 {
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+    @media (min-width: 481px) and (max-width: 1024px) {
+      .weather-container {
+        max-width: 90%;
+      }
+      .temperature {
+        font-size: 3.5rem;
+      }
+      .location {
+        font-size: 1.4rem;
+      }
+      .air-quality {
+        font-size: 1rem;
+      }
+      .forecast-item {
+        width: 70px;
+      }
+      .forecast-item img {
+        width: 50px;
+        height: 50px;
+      }
+    }
+    @media (min-width: 1025px) {
+      .weather-container {
+        max-width: 1024px;
+      }
+      .current-weather, .air-quality, .forecast-daily, .weather-details {
+        padding: 30px;
+      }
+      .temperature {
+        font-size: 4rem;
+      }
+      .location {
+        font-size: 1.6rem;
+      }
+      .forecast-item {
+        width: 80px;
+      }
+      .forecast-item img {
+        width: 60px;
+        height: 60px;
+      }
+      .detail-card .icon {
+        font-size: 2rem;
+      }
+      .detail-card .value {
+        font-size: 1.2rem;
+      }
+      .detail-card .label {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="weather-container">
+    <!-- Judul / Nama Aplikasi -->
+    <div class="wrapper">
+      <svg>
+        <text x="50%" y="50%" dy=".15em" text-anchor="middle">
+          Astro Weather 
+        </text>
+      </svg>
+    </div>
+    <canvas id="starCanvas"></canvas>
+    <!-- Bagian cuaca saat ini -->
+    <div class="current-weather" id="currentWeather">
+      <div class="location" id="locationText">Belum Diketahui</div>
+      <div class="space">
+        <div id="locationResult" class="air-quality">
+          Meminta akses lokasi...
+        </div>
+        <div id="clock" class="air-quality">
+          Memuat waktu...
+        </div>
+      </div>
+      <div class="temperature" id="temperatureText">--°</div>
+      <div class="weather-condition" id="conditionText">-</div>
+      <div class="temp-range" id="rangeText">-</div>
+    </div>
+    <!-- Bagian ramalan 5 hari -->
+    <div id="forecastDaily" class="forecast-daily">
+      <h3>Ramalan 5 Hari</h3>
+      <div class="forecast-list">
+        <!-- Forecast item akan diisi oleh JavaScript -->
+      </div>
+    </div>
+    <!-- Bagian ramalan 24 jam -->
+    <div id="forecastHourly" class="forecast-daily">
+      <!-- Judul dan konten akan diisi oleh JavaScript -->
+    </div>
+    <div id="map"></div>
+    <!-- Bagian detail cuaca -->
+    <div id="weatherDetails" class="weather-details">
+      <h3>Rincian Lainnya</h3>
+      <div class="detail-cards">
+        <!-- Detail card akan diisi oleh JavaScript -->
+      </div>
+    </div>
+  </div>
+  <!-- Sertakan Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Kode partikel bintang
+    let starCanvas, starCtx;
+    let stars = [];
+    let starAnimationActive = false;
+
+    function initStars() {
+      if (!starCanvas) {
+        starCanvas = document.getElementById('starCanvas');
+        starCtx = starCanvas.getContext('2d');
+        starCanvas.width = window.innerWidth;
+        starCanvas.height = window.innerHeight;
+        window.addEventListener('resize', () => {
+          starCanvas.width = window.innerWidth;
+          starCanvas.height = window.innerHeight;
+        });
+      }
+      stars = [];
+      for (let i = 0; i < 100; i++) {
+        stars.push({
+          x: Math.random() * starCanvas.width,
+          y: Math.random() * starCanvas.height,
+          radius: Math.random() * 1.5 + 0.5,
+          speed: Math.random() * 0.5 + 0.2,
+          opacity: Math.random() * 0.5 + 0.5
+        });
+      }
+      starAnimationActive = true;
+      animateStars();
+    }
+
+    function animateStars() {
+      if (!starAnimationActive) return;
+      starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+      for (let i = 0; i < stars.length; i++) {
+        let star = stars[i];
+        star.x += star.speed;
+        if (star.x > starCanvas.width) {
+          star.x = 0;
+          star.y = Math.random() * starCanvas.height;
+        }
+        starCtx.beginPath();
+        starCtx.arc(star.x, star.y, star.radius, 0, 2 * Math.PI);
+        starCtx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+        starCtx.fill();
+      }
+      requestAnimationFrame(animateStars);
+    }
+
+    function stopStars() {
+      starAnimationActive = false;
+      if (starCtx && starCanvas) {
+        starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+      }
+    }
+
+    // Variabel global
+    let lat = 0, lon = 0, map;
+    let weatherUpdateInterval;
+
+    // Fungsi untuk mengambil data cuaca dari Open-Meteo termasuk tekanan
+    function getWeatherByLocation(lat, lon) {
+      // Tambahkan pressure_msl ke parameter hourly
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+                  `&current_weather=true` +
+                  `&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset` +
+                  `&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl` +
+                  `&timezone=auto`;
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          displayWeather(data);
+          displayHourlyForecast(data);
+        })
+        .catch(error => {
+          document.getElementById('weatherDetails').innerHTML = '<p>Error: ' + error.message + '</p>';
+        });
+    }
+
+    // Fungsi untuk menampilkan data cuaca (current dan daily)
+    function displayWeather(data) {
+      const locationText = document.getElementById('locationText');
+      const temperatureText = document.getElementById('temperatureText');
+      const conditionText = document.getElementById('conditionText');
+      const rangeText = document.getElementById('rangeText');
+      const forecastList = document.querySelector('#forecastDaily .forecast-list');
+      const detailCards = document.querySelector('#weatherDetails .detail-cards');
+
+      if (!data || !data.current_weather || !data.daily) {
+        document.getElementById('locationResult').innerHTML = '<p>Data tidak tersedia atau format data tidak sesuai.</p>';
+        return;
+      }
+
+      const current = data.current_weather;
+      const daily = data.daily;
+
+      // Tampilkan data cuaca saat ini
+      locationText.textContent = "";
+      temperatureText.textContent = `${current.temperature}°`;
+      conditionText.textContent = getWeatherDescription(current.weathercode);
+      rangeText.textContent = `Angin: ${current.windspeed} km/jam`;
+
+      // Tampilkan ramalan 5 hari
+      forecastList.innerHTML = '';
+      for (let i = 0; i < 5; i++) {
+        const dayName = new Date(daily.time[i]).toLocaleDateString('id-ID', { weekday: 'short' });
+        const minTemp = daily.temperature_2m_min[i];
+        const maxTemp = daily.temperature_2m_max[i];
+        const weatherIcon = getWeatherIcon(daily.weathercode[i]);
+        forecastList.innerHTML += `
+          <div class="forecast-item">
+            <div class="day">${dayName}</div>
+            <img src="${weatherIcon}" alt="Weather Icon">
+            <div class="temp">${minTemp}° / ${maxTemp}°</div>
+          </div>
+        `;
+      }
+
+      // Cari indeks waktu yang paling mendekati waktu sekarang (untuk hourly data)
+      const now = new Date(data.current_weather.time);
+      const hourlyTimes = data.hourly.time;
+      let currentIndex = hourlyTimes.findIndex(t => new Date(t).getHours() === now.getHours());
+      if (currentIndex === -1) currentIndex = 0;
+
+      // Fungsi konversi derajat ke arah mata angin
+      function getCardinalDirection(angle) {
+        const directions = ['Utara', 'Timur Laut', 'Timur', 'Tenggara', 'Selatan', 'Barat Daya', 'Barat', 'Barat Laut'];
+        return directions[Math.round(angle / 45) % 8];
+      }
+
+      // Ambil data kelembapan dan tekanan
+      const currentHumidity = data.hourly.relativehumidity_2m[currentIndex];
+      const currentPressure = data.hourly.pressure_msl[currentIndex];
+
+      // Tampilkan detail cuaca dengan data realtime; perhatikan bahwa untuk kualitas udara nanti akan diupdate secara terpisah
+      detailCards.innerHTML = '';
+      const details = [
+        { icon: '💧', value: currentHumidity + '%', label: 'Kelembapan' },
+        { icon: '🌡', value: `${current.temperature}°`, label: 'Terasa Seperti' },
+        { icon: '🧭', value: `${current.windspeed} km/jam`, label: 'Angin' },
+        { icon: '📍', value: getCardinalDirection(current.winddirection), label: 'Arah Angin' },
+        { icon: '🌅', value: new Date(data.daily.sunrise[0]).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), label: 'Fajar' },
+        { icon: '🌇', value: new Date(data.daily.sunset[0]).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), label: 'Senja' },
+        { icon: '🌪', value: currentPressure + ' mbar', label: 'Tekanan' },
+        // Untuk kualitas udara, buat placeholder dengan id untuk nantinya diupdate
+        { icon: '🌫', value: 'Loading...', label: 'Kualitas Udara', id: 'airQualityCard' }
+      ];
+
+      details.forEach(detail => {
+        detailCards.innerHTML += `
+          <div class="detail-card" ${detail.id ? 'id="' + detail.id + '"' : ''}>
+            <div class="icon">${detail.icon}</div>
+            <div class="value">${detail.value}</div>
+            <div class="label">${detail.label}</div>
+          </div>
+        `;
+      });
+    }
+
+    // Fungsi untuk menampilkan ramalan 24 jam (hourly forecast)
+    function displayHourlyForecast(data) {
+      if (!data.hourly) return;
+      const hourlyData = data.hourly;
+      const hourlyTimes = hourlyData.time;
+      const temperatures = hourlyData.temperature_2m;
+      const weathercodes = hourlyData.weathercode;
+      const now = new Date(data.current_weather.time);
+      let startIndex = hourlyTimes.findIndex(t => new Date(t) >= now);
+      if (startIndex < 0) startIndex = 0;
+      let forecastHourlyHTML = '';
+      for (let i = startIndex; i < Math.min(startIndex + 24, hourlyTimes.length); i++) {
+        const hourTime = new Date(hourlyTimes[i]);
+        const hourLabel = hourTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const temp = temperatures[i];
+        const icon = getWeatherIcon(weathercodes[i]);
+        forecastHourlyHTML += `
+          <div class="forecast-item">
+            <div class="day">${hourLabel}</div>
+            <img src="${icon}" alt="Weather Icon">
+            <div class="temp">${temp}°C</div>
+          </div>
+        `;
+      }
+      document.getElementById('forecastHourly').innerHTML = `
+        <h3>Ramalan 24 Jam</h3>
+        <div class="forecast-list">
+          ${forecastHourlyHTML}
+        </div>
+      `;
+    }
+
+    // Fungsi untuk mengkonversi kode cuaca ke deskripsi
+    function getWeatherDescription(code) {
+      const codes = {
+        0: "Cerah",
+        1: "Sebagian Cerah",
+        2: "Berawan",
+        3: "Mendung",
+        45: "Kabut",
+        48: "Kabut Basah",
+        51: "Hujan Ringan",
+        53: "Hujan Sedang",
+        55: "Hujan Lebat",
+        56: "Hujan Es Ringan",
+        57: "Hujan Es Berat",
+        61: "Hujan",
+        63: "Hujan Lebat",
+        65: "Hujan Sangat Lebat",
+        66: "Hujan Es Ringan",
+        67: "Hujan Es Berat",
+        71: "Salju Ringan",
+        73: "Salju Sedang",
+        75: "Salju Berat",
+        77: "Butiran Salju",
+        80: "Hujan Lokal",
+        81: "Hujan Lokal Sedang",
+        82: "Hujan Lokal Lebat",
+        85: "Salju Lokal",
+        86: "Salju Lokal Lebat",
+        95: "Awan Petir",
+        96: "Awan Petir Ringan",
+        99: "Awan Petir Berat"
+      };
+      return codes[code] || "Tidak diketahui";
+    }
+
+    // Fungsi untuk menentukan URL ikon cuaca berdasarkan kode
+    function getWeatherIcon(code) {
+      if (code === 0 || code === 1) {
+        return "https://cdn-icons-png.flaticon.com/512/861/861060.png";
+      } else if (code === 2 || code === 3) {
+        return "https://cdn-icons-png.flaticon.com/512/414/414927.png";
+      } else {
+        return "https://cdn-icons-png.flaticon.com/512/1779/1779807.png";
+      }
+    }
+
+    // Fungsi untuk mengambil nama lokasi via reverse geocoding (Nominatim)
+    function getLocationName(lat, lon) {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const address = data.address;
+          const locationName = address.village || address.town || address.city || address.county || "Nama Lokasi Tidak Diketahui";
+          document.getElementById('locationResult').innerHTML = `
+            <p class="hide"><strong>Lokasi Anda:</strong> Latitude: ${lat.toFixed(2)}, Longitude: ${lon.toFixed(2)}</p>
+            <p>${locationName}</p>
+          `;
+        })
+        .catch(err => {
+          document.getElementById('locationResult').innerHTML = `
+            <p><strong>Lokasi Anda:</strong> Latitude: ${lat.toFixed(2)}, Longitude: ${lon.toFixed(2)}</p>
+            <p>Nama Lokasi Tidak Diketahui</p>
+          `;
+        });
+    }
+
+    // Fungsi untuk mengupdate jam secara real-time
+    function updateClock() {
+      const clockElement = document.getElementById('clock');
+      setInterval(() => {
+        const now = new Date();
+        clockElement.textContent = `Waktu: ${now.toLocaleTimeString('id-ID')}`;
+      }, 1000);
+    }
+
+    // Fungsi untuk mengambil data kualitas udara menggunakan Air Quality API Open-Meteo
+    function getAirQuality(lat, lon) {
+      const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi&timezone=auto`;
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const hourlyTimes = data.hourly.time;
+          const usAqi = data.hourly.us_aqi;
+          const now = new Date();
+          let currentIndex = hourlyTimes.findIndex(t => new Date(t).getHours() === now.getHours());
+          if (currentIndex === -1) currentIndex = 0;
+          const aqiValue = usAqi[currentIndex];
+          // Update nilai kualitas udara pada card yang memiliki id "airQualityCard"
+          const airQualityCard = document.getElementById('airQualityCard');
+          if (airQualityCard) {
+            airQualityCard.querySelector('.value').textContent = aqiValue;
+          }
+        })
+        .catch(err => {
+          const airQualityCard = document.getElementById('airQualityCard');
+          if (airQualityCard) {
+            airQualityCard.querySelector('.value').textContent = 'N/A';
+          }
+        });
+    }
+
+    // Fungsi untuk inisialisasi peta cuaca menggunakan Leaflet dan menambahkan lapisan WMS BMKG
+    function initMap(lat, lon) {
+      if (!map) {
+        map = L.map('map').setView([lat, lon], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        L.tileLayer.wms("https://gis.bmkg.go.id/arcgis/services/Peta_Curah_Hujan_dan_Hari_Hujan_/MapServer/WMSServer", {
+          layers: '1,2',
+          format: 'image/png',
+          transparent: true,
+          version: '1.3.0',
+          attribution: "astrolynx"
+        }).addTo(map);
+      } else {
+        map.setView([lat, lon], 7);
+      }
+    }
+
+    // Fungsi untuk set background dinamis berdasarkan waktu
+    function setDynamicBackground() {
+      const body = document.body;
+      const currentHour = new Date().getHours();
+      const backgrounds = {
+        morning: 'linear-gradient(to top, #B6DBFF, #E0F2FF, #FFFFFF)',
+        noon: 'linear-gradient(to top, #87CEEB, #00BFFF, #F0E68C)',
+        evening: 'linear-gradient(to top, #FFA500, #FF6347, #FF4500)',
+        night: 'linear-gradient(to top, #000080, #191970, #000000)'
+      };
+
+      if (currentHour >= 5 && currentHour < 10) {
+        body.style.background = backgrounds.morning;
+        body.style.color = '#000';
+      } else if (currentHour >= 10 && currentHour < 16) {
+        body.style.background = backgrounds.noon;
+        body.style.color = '#000';
+      } else if (currentHour >= 16 && currentHour < 19) {
+        body.style.background = backgrounds.evening;
+        body.style.color = '#fff';
+      } else {
+        body.style.background = backgrounds.night;
+        body.style.color = '#fff';
+      }
+    }
+
+    // Fungsi untuk mendapatkan lokasi pengguna dan memulai semua proses
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, showError);
+      } else {
+        document.getElementById('locationResult').innerHTML = "Geolokasi tidak didukung oleh browser ini.";
+      }
+    }
+
+    // Callback saat posisi didapatkan
+    function showPosition(position) {
+      lat = position.coords.latitude;
+      lon = position.coords.longitude;
+      getLocationName(lat, lon);
+      getWeatherByLocation(lat, lon);
+      // Panggil fungsi untuk kualitas udara
+      getAirQuality(lat, lon);
+      updateClock();
+      initMap(lat, lon);
+      setDynamicBackground();
+      setInterval(setDynamicBackground, 1800000);
+      if (weatherUpdateInterval) clearInterval(weatherUpdateInterval);
+      weatherUpdateInterval = setInterval(() => {
+        getWeatherByLocation(lat, lon);
+        getAirQuality(lat, lon);
+      }, 300000);
+    }
+
+    // Callback error geolokasi
+    function showError(error) {
+      let message = "";
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          message = "Pengguna menolak permintaan geolokasi, aktifkan lokasi (GPS).";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          message = "Informasi lokasi tidak tersedia.";
+          break;
+        case error.TIMEOUT:
+          message = "Permintaan lokasi melebihi batas waktu.";
+          break;
+        case error.UNKNOWN_ERROR:
+          message = "Terjadi kesalahan yang tidak diketahui.";
+          break;
+      }
+      document.getElementById('locationResult').innerHTML = `<p>Error: ${message}</p>`;
+    }
+
+    // Mulai proses saat halaman selesai dimuat
+    document.addEventListener('DOMContentLoaded', () => {
+      initStars();
+      getLocation();
+    });
+  </script>
+</body>
+</html>
